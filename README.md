@@ -24,6 +24,13 @@ git clone git@github.com:LotemH49/Rover.git
 cd Rover
 ```
 
+## Requirements
+
+```bash
+pip3 install -r requirements.txt
+python3 rover.py
+```
+
 ## Hardware
 
 - Adafruit DC Motor HAT (I2C)
