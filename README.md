@@ -2,6 +2,28 @@
 
 Encoder-closed-loop drive and turn primitives for a 4-motor Raspberry Pi rover, plus a browser-based simulator for development on a laptop.
 
+## Clone on Linux
+
+Install git if needed:
+
+```bash
+sudo apt update && sudo apt install git
+```
+
+Clone the repo (HTTPS):
+
+```bash
+git clone https://github.com/LotemH49/Rover.git
+cd Rover
+```
+
+Or with SSH (if you have a GitHub SSH key set up):
+
+```bash
+git clone git@github.com:LotemH49/Rover.git
+cd Rover
+```
+
 ## Hardware
 
 - Adafruit DC Motor HAT (I2C)
