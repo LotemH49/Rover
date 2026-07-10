@@ -26,9 +26,22 @@ cd Rover
 
 ## Requirements
 
+Modern Linux / Raspberry Pi OS blocks system-wide `pip install` (externally-managed-environment). Use a virtual environment:
+
 ```bash
-pip3 install -r requirements.txt
+sudo apt install python3-venv python3-pip
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 python3 rover.py
+```
+
+Activate the venv again in future sessions: `source .venv/bin/activate`
+
+If you must install without a venv (not recommended):
+
+```bash
+pip3 install --break-system-packages -r requirements.txt
 ```
 
 ## Hardware
@@ -49,12 +62,7 @@ Open http://localhost:8000 to drive the rover, run the demo, or watch the lawnmo
 
 ## Raspberry Pi
 
-Enable I2C (`sudo raspi-config` → Interface Options → I2C), then:
-
-```bash
-pip3 install -r requirements.txt
-python3 rover.py
-```
+Enable I2C (`sudo raspi-config` → Interface Options → I2C), then use the [Requirements](#requirements) venv steps above.
 
 ## API
 
