@@ -37,12 +37,25 @@ COUNTS_PER_MM = COUNTS_PER_REV / WHEEL_CIRC_MM     # ~4.41 counts per mm
 #   1 = front-left   2 = front-right   3 = rear-left   4 = rear-right
 MOTOR_SIGN = {1: +1, 2: -1, 3: +1, 4: -1}
 
-# Encoder GPIO pins (BCM numbering): motor -> (channel A, channel B)
+# Encoder GPIO pins (BCM numbering): motor -> (channel A, channel B).
+# Layout is optimized for a T-Cobbler: all 8 signals sit in the bottom pin
+# block (physical 29–40), A/B pairs are adjacent, and I2C (GPIO2/3 for the
+# Motor HAT) is left free at the top of the header.
+#
+#   Motor   Role          Chan A   Chan B   Cobbler labels   Phys pins
+#   -----   ----          ------   ------   --------------   ---------
+#     1     front-left      5        6      GPIO5 / GPIO6    29 / 31
+#     2     front-right    13       19      GPIO13 / GPIO19  33 / 35
+#     3     rear-left      26       20      GPIO26 / GPIO20  37 / 38
+#     4     rear-right     16       21      GPIO16 / GPIO21  36 / 40
+#
+# Also share GND with the Pi (e.g. phys 30/34/39) and power encoders from
+# 3.3V (phys 1 or 17) unless your encoder boards are already level-shifted.
 ENC_PINS = {
-    1: (17, 27),
-    2: (22, 23),
-    3: (5, 6),
-    4: (13, 19),
+    1: (5, 6),
+    2: (13, 19),
+    3: (26, 20),
+    4: (16, 21),
 }
 
 LEFT_MOTORS = (1, 3)
