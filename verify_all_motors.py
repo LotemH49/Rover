@@ -1,6 +1,7 @@
-"""Verify all four Motor HAT channels (M1–M4).
+"""Drive all four motors at once to verify the rover can move.
 
-Spins each motor forward, then reverse. No encoders.
+Uses MOTOR_SIGN so mirrored right-side motors drive straight.
+No encoders.
 
 Run on the Pi:
 
@@ -12,9 +13,19 @@ import time
 import board  # pyright: ignore[reportMissingImports]
 from adafruit_motorkit import MotorKit  # pyright: ignore[reportMissingImports]
 
+# Same as rover.py: right side is mounted mirrored.
+#   1 = front-left   2 = front-right   3 = rear-left   4 = rear-right
+MOTOR_SIGN = {1: +1, 2: -1, 3: +1, 4: -1}
+
 THROTTLE = 0.4
-SECONDS = 3
-PAUSE = 0.5
+SECONDS = 5
+PAUSE = 1.0
+
+
+def set_all(motors, logical):
+    """Apply the same logical forward(+)/backward(-) throttle to all wheels."""
+    for num, motor in motors.items():
+        motor.throttle = MOTOR_SIGN[num] * logical
 
 
 def main():
@@ -27,28 +38,21 @@ def main():
     }
 
     try:
-        for num, motor in motors.items():
-            print(f"--- Motor {num} (M{num}) ---")
+        print(f"Drive FORWARD {SECONDS}s (all motors)...")
+        set_all(motors, +THROTTLE)
+        time.sleep(SECONDS)
 
-            print(f"  Forward {SECONDS}s...")
-            motor.throttle = THROTTLE
-            time.sleep(SECONDS)
+        print("Stop.")
+        set_all(motors, 0)
+        time.sleep(PAUSE)
 
-            motor.throttle = 0
-            time.sleep(PAUSE)
+        print(f"Drive REVERSE {SECONDS}s (all motors)...")
+        set_all(motors, -THROTTLE)
+        time.sleep(SECONDS)
 
-            print(f"  Reverse {SECONDS}s...")
-            motor.throttle = -THROTTLE
-            time.sleep(SECONDS)
-
-            motor.throttle = 0
-            time.sleep(PAUSE)
-            print(f"  Motor {num} done.\n")
-
-        print("All motors tested.")
+        print("Done.")
     finally:
-        for motor in motors.values():
-            motor.throttle = 0
+        set_all(motors, 0)
 
 
 if __name__ == "__main__":
