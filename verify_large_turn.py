@@ -23,8 +23,8 @@ RIGHT_MOTORS = (1, 4)  # rear-right, front-right
 
 # Outer / inner throttle for an arc (both forward).
 OUTER = 1
-INNER = .3
-SECONDS = 2.5
+INNER = .2
+SECONDS = 5
 PAUSE = 0
 
 
