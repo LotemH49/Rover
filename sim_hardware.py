@@ -30,14 +30,14 @@ TRACK_WIDTH_MM = 331.8
 # How the wheels are physically wired/mounted. With the right side mirrored,
 # a forward command (+left / -right throttle from rover.MOTOR_SIGN) must move
 # the whole rover forward, so the sim's mount sign mirrors that mapping.
-#   1 = front-left  2 = front-right  3 = rear-left  4 = rear-right
+#   1 = front-right  2 = front-left  3 = rear-left  4 = rear-right
 MOUNT_SIGN = {1: -1, 2: +1, 3: +1, 4: -1}
 
 # Wheel speed (mm/s) at throttle = 1.0. Tune to taste for the sim.
 MAX_WHEEL_SPEED_MM_S = 260.0
 
-LEFT_MOTORS = (1, 3)
-RIGHT_MOTORS = (2, 4)
+LEFT_MOTORS = (2, 3)
+RIGHT_MOTORS = (1, 4)
 
 
 # =========================================================================
@@ -165,9 +165,9 @@ class Simulator:
         s3 = self._wheel_speed(3)
         s4 = self._wheel_speed(4)
 
-        # Physical sides on this build: motors 2,4 are left; 1,3 are right.
-        v_left = (s2 + s4) / 2.0
-        v_right = (s1 + s3) / 2.0
+        # Physical sides on this build: motor channels 1 and 2 are swapped.
+        v_left = (s2 + s3) / 2.0
+        v_right = (s1 + s4) / 2.0
         v = (v_left + v_right) / 2.0
         omega = (v_right - v_left) / TRACK_WIDTH_MM
 

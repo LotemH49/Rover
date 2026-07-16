@@ -34,7 +34,7 @@ COUNTS_PER_MM = COUNTS_PER_REV / WHEEL_CIRC_MM     # ~4.41 counts per mm
 # so driving forward means +throttle on the left and -throttle on the right.
 # If any wheel spins the wrong way on the bench, flip its sign here (or swap
 # its two wires in the HAT terminal block -- either fixes it).
-#   1 = front-left   2 = front-right   3 = rear-left   4 = rear-right
+#   1 = front-right   2 = front-left   3 = rear-left   4 = rear-right
 # Front motors were wired opposite the rears on this build, so FL/FR are flipped.
 MOTOR_SIGN = {1: -1, 2: +1, 3: +1, 4: -1}
 
@@ -45,8 +45,8 @@ MOTOR_SIGN = {1: -1, 2: +1, 3: +1, 4: -1}
 #
 #   Motor   Role          Chan A   Chan B   Cobbler labels   Phys pins
 #   -----   ----          ------   ------   --------------   ---------
-#     1     front-left      5        6      GPIO5 / GPIO6    29 / 31
-#     2     front-right    13       19      GPIO13 / GPIO19  33 / 35
+#     1     front-right     5        6      GPIO5 / GPIO6    29 / 31
+#     2     front-left     13       19      GPIO13 / GPIO19  33 / 35
 #     3     rear-left      26       20      GPIO26 / GPIO20  37 / 38
 #     4     rear-right     16       21      GPIO16 / GPIO21  36 / 40
 #
@@ -59,9 +59,9 @@ ENC_PINS = {
     4: (16, 21),
 }
 
-# Physical sides on this build: motors 2,4 are the left wheels; 1,3 the right.
-LEFT_MOTORS = (2, 4)
-RIGHT_MOTORS = (1, 3)
+# Physical sides on this build: motor channels 1 and 2 are swapped.
+LEFT_MOTORS = (2, 3)
+RIGHT_MOTORS = (1, 4)
 
 # Default throttles -- modest so the rover is controllable; callers can override.
 DEFAULT_DRIVE_THROTTLE = 0.5
@@ -142,8 +142,8 @@ class Rover:
             self._motors[name].throttle = MOTOR_SIGN[name] * value
 
     def _drive_sides(self, left, right):
-        """Drive the left wheels (2,4) and right wheels (1,3) at logical throttles."""
-        self._set_logical(right, left, right, left)
+        """Drive the left wheels (2,3) and right wheels (1,4) at logical throttles."""
+        self._set_logical(right, left, left, right)
 
     def stop(self):
         """Brake all motors (throttle 0)."""

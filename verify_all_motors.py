@@ -14,7 +14,7 @@ import board  # pyright: ignore[reportMissingImports]
 from adafruit_motorkit import MotorKit  # pyright: ignore[reportMissingImports]
 
 # Same as rover.py: right side is mounted mirrored.
-#   1 = front-left   2 = front-right   3 = rear-left   4 = rear-right
+#   1 = front-right   2 = front-left   3 = rear-left   4 = rear-right
 MOTOR_SIGN = {1: -1, 2: +1, 3: +1, 4: -1}
 
 THROTTLE = 0.4
