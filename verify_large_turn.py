@@ -23,9 +23,9 @@ RIGHT_MOTORS = (1, 4)  # rear-right, front-right
 
 # Outer / inner throttle for an arc (both forward).
 OUTER = 1
-INNER = .5
-SECONDS = 5
-PAUSE = 1.0
+INNER = .3
+SECONDS = 2.5
+PAUSE = 0
 
 
 def set_sides(motors, left, right):
@@ -66,7 +66,7 @@ def main():
 
         print(f"Large RIGHT turn (arc) {SECONDS}s...")
         print(f"  left={OUTER}  right={INNER}")
-        set_sides(motors, OUTER, INNER)
+        set_sides(motors, INNER, OUTER)
         if stop_on_enter.sleep(SECONDS):
             print("Stopped.")
             return
