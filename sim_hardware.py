@@ -31,7 +31,7 @@ TRACK_WIDTH_MM = 331.8
 # a forward command (+left / -right throttle from rover.MOTOR_SIGN) must move
 # the whole rover forward, so the sim's mount sign mirrors that mapping.
 #   1 = front-left  2 = front-right  3 = rear-left  4 = rear-right
-MOUNT_SIGN = {1: +1, 2: -1, 3: +1, 4: -1}
+MOUNT_SIGN = {1: -1, 2: +1, 3: +1, 4: -1}
 
 # Wheel speed (mm/s) at throttle = 1.0. Tune to taste for the sim.
 MAX_WHEEL_SPEED_MM_S = 260.0

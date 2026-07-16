@@ -35,7 +35,8 @@ COUNTS_PER_MM = COUNTS_PER_REV / WHEEL_CIRC_MM     # ~4.41 counts per mm
 # If any wheel spins the wrong way on the bench, flip its sign here (or swap
 # its two wires in the HAT terminal block -- either fixes it).
 #   1 = front-left   2 = front-right   3 = rear-left   4 = rear-right
-MOTOR_SIGN = {1: +1, 2: -1, 3: +1, 4: -1}
+# Front motors were wired opposite the rears on this build, so FL/FR are flipped.
+MOTOR_SIGN = {1: -1, 2: +1, 3: +1, 4: -1}
 
 # Encoder GPIO pins (BCM numbering): motor -> (channel A, channel B).
 # Layout is optimized for a T-Cobbler: all 8 signals sit in the bottom pin
