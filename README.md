@@ -26,14 +26,28 @@ cd Rover
 
 ## Requirements
 
-Modern Linux / Raspberry Pi OS blocks system-wide `pip install` (externally-managed-environment). Use a virtual environment:
+Modern Linux / Raspberry Pi OS blocks system-wide `pip install` (externally-managed-environment). Use a virtual environment.
+
+On a **Pi 5**, install system `lgpio` first (pip cannot build it without extra tools), then create the venv with access to system packages:
 
 ```bash
-sudo apt install python3-venv python3-pip
-python3 -m venv .venv
+sudo apt update
+sudo apt install -y python3-venv python3-pip python3-lgpio
+cd ~/Rover
+python3 -m venv --system-site-packages .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-python3 rover.py
+python3 startup_test.py
+```
+
+If you already have a venv **without** system site packages, recreate it:
+
+```bash
+deactivate
+rm -rf .venv
+python3 -m venv --system-site-packages .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
 Activate the venv again in future sessions: `source .venv/bin/activate`
@@ -43,7 +57,6 @@ If you must install without a venv (not recommended):
 ```bash
 pip3 install --break-system-packages -r requirements.txt
 ```
-
 ## Hardware
 
 - Adafruit DC Motor HAT (I2C)
