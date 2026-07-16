@@ -6,12 +6,14 @@ Uses the same MOTOR_SIGN as rover.py / verify_all_motors.py.
 Run on the Pi:
 
     python3 verify_turn.py
-"""
 
-import time
+Press Enter at any time to stop.
+"""
 
 import board  # pyright: ignore[reportMissingImports]
 from adafruit_motorkit import MotorKit  # pyright: ignore[reportMissingImports]
+
+import stop_on_enter
 
 # Must match rover.py (verified: 1=RR, 2=RL, 3=FL, 4=FR)
 MOTOR_SIGN = {1: -1, 2: +1, 3: +1, 4: -1}
@@ -36,6 +38,7 @@ def stop(motors):
 
 
 def main():
+    stop_on_enter.install()
     kit = MotorKit(i2c=board.I2C())
     motors = {
         1: kit.motor1,
@@ -45,19 +48,23 @@ def main():
     }
 
     try:
-        # CCW / left turn: left backward, right forward
         print(f"Turn LEFT (CCW) {SECONDS}s...")
         set_sides(motors, -THROTTLE, +THROTTLE)
-        time.sleep(SECONDS)
+        if stop_on_enter.sleep(SECONDS):
+            print("Stopped.")
+            return
 
         print("Stop.")
         stop(motors)
-        time.sleep(PAUSE)
+        if stop_on_enter.sleep(PAUSE):
+            print("Stopped.")
+            return
 
-        # CW / right turn: left forward, right backward
         print(f"Turn RIGHT (CW) {SECONDS}s...")
         set_sides(motors, +THROTTLE, -THROTTLE)
-        time.sleep(SECONDS)
+        if stop_on_enter.sleep(SECONDS):
+            print("Stopped.")
+            return
 
         print("Done.")
     finally:

@@ -14,6 +14,7 @@ What it checks:
     1. Motor spins when throttle is applied (encoder counts change)
     2. Forward throttle produces positive count delta (A/B sense / MOTOR_SIGN)
     3. Reverse throttle produces negative count delta
+Press Enter at any time to stop.
 """
 
 import sys
@@ -22,6 +23,8 @@ import time
 import board  # pyright: ignore[reportMissingImports]
 import RPi.GPIO as GPIO  # pyright: ignore[reportMissingImports, reportMissingModuleSource]
 from adafruit_motorkit import MotorKit  # pyright: ignore[reportMissingImports]
+
+import stop_on_enter
 
 # Motor 1 only — match rover ENC_PINS[1]
 ENC_A = 5
@@ -62,9 +65,10 @@ class Motor1Test:
         """Apply logical forward(+)/backward(-) throttle for ``seconds``."""
         self.count = 0
         self.motor.throttle = MOTOR_SIGN * logical_throttle
-        time.sleep(seconds)
+        stop_on_enter.sleep(seconds)
         self.motor.throttle = 0
-        time.sleep(0.2)
+        if not stop_on_enter.stopped():
+            stop_on_enter.sleep(0.2)
         return self.count
 
     def cleanup(self):
@@ -79,6 +83,7 @@ def _report(ok, message):
 
 
 def run():
+    stop_on_enter.install()
     print("Motor 1 wiring test")
     print(f"  HAT: motor1  |  encoder A=GPIO{ENC_A}  B=GPIO{ENC_B}")
     print(f"  throttle ±{THROTTLE} for {SPIN_SECONDS}s each direction")
@@ -88,8 +93,15 @@ def run():
     passed = True
 
     try:
+        if stop_on_enter.stopped():
+            print("Stopped.")
+            return 130
+
         print("1) Forward spin...")
         fwd = test._spin(+THROTTLE, SPIN_SECONDS)
+        if stop_on_enter.stopped():
+            print("Stopped.")
+            return 130
         moved = abs(fwd) >= MIN_COUNTS
         passed &= _report(
             moved,
@@ -115,6 +127,9 @@ def run():
         print()
         print("2) Reverse spin...")
         rev = test._spin(-THROTTLE, SPIN_SECONDS)
+        if stop_on_enter.stopped():
+            print("Stopped.")
+            return 130
         moved = abs(rev) >= MIN_COUNTS
         passed &= _report(
             moved,

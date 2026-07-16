@@ -20,6 +20,8 @@ import board  # pyright: ignore[reportMissingImports]
 import RPi.GPIO as GPIO  # pyright: ignore[reportMissingImports, reportMissingModuleSource]
 from adafruit_motorkit import MotorKit  # pyright: ignore[reportMissingImports]
 
+import stop_on_enter
+
 
 # --------------------------------------------------------------------------
 # Physical constants
@@ -174,6 +176,8 @@ class Rover:
         self._drive_sides(speed, speed)
         try:
             while self._avg_abs_counts() < target:
+                if stop_on_enter.stopped():
+                    break
                 time.sleep(0.005)
         finally:
             self.stop()
@@ -203,6 +207,8 @@ class Rover:
         self._drive_sides(left, right)
         try:
             while self._avg_abs_counts() < target:
+                if stop_on_enter.stopped():
+                    break
                 time.sleep(0.005)
         finally:
             self.stop()
@@ -218,15 +224,26 @@ class Rover:
 
 def _demo():
     """Bench demo: drive forward 500 mm, then turn left 90 degrees."""
+    stop_on_enter.install()
     rover = Rover()
     try:
         print("Driving forward 500 mm...")
         rover.drive(500)
-        time.sleep(0.5)
+        if stop_on_enter.stopped():
+            print("Stopped.")
+            return
+        if stop_on_enter.sleep(0.5):
+            print("Stopped.")
+            return
 
         print("Turning left 90 degrees...")
         rover.turn(90)
-        time.sleep(0.5)
+        if stop_on_enter.stopped():
+            print("Stopped.")
+            return
+        if stop_on_enter.sleep(0.5):
+            print("Stopped.")
+            return
 
         print("Done.")
     finally:
@@ -237,19 +254,29 @@ def basic_search(x_max, y_max, angle_initial, rover=None, lane_mm=SEARCH_LANE_MM
     """Lawnmower search over a rectangle up to (x_max, y_max).
 
     Sweeps horizontal rows of width x_max, stepping lane_mm between rows.
-  Positive angle_initial rotates the rover before the first leg.
+    Positive angle_initial rotates the rover before the first leg.
     """
     own_rover = rover is None
     rover = rover or Rover()
     try:
         if angle_initial:
             rover.turn(angle_initial)
+            if stop_on_enter.stopped():
+                print("Stopped.")
+                return
 
         y = 0.0
         direction = 1  # 1 = row along +x, -1 = row along -x
 
         while y < y_max:
+            if stop_on_enter.stopped():
+                print("Stopped.")
+                return
+
             rover.drive(x_max)
+            if stop_on_enter.stopped():
+                print("Stopped.")
+                return
 
             y += lane_mm
             if y >= y_max:
@@ -258,12 +285,27 @@ def basic_search(x_max, y_max, angle_initial, rover=None, lane_mm=SEARCH_LANE_MM
             # Step one lane in +y; turn direction depends on row heading.
             if direction == 1:
                 rover.turn(90)
+                if stop_on_enter.stopped():
+                    print("Stopped.")
+                    return
                 rover.drive(lane_mm)
+                if stop_on_enter.stopped():
+                    print("Stopped.")
+                    return
                 rover.turn(90)
             else:
                 rover.turn(-90)
+                if stop_on_enter.stopped():
+                    print("Stopped.")
+                    return
                 rover.drive(lane_mm)
+                if stop_on_enter.stopped():
+                    print("Stopped.")
+                    return
                 rover.turn(-90)
+            if stop_on_enter.stopped():
+                print("Stopped.")
+                return
             direction *= -1
     finally:
         if own_rover:
@@ -271,4 +313,5 @@ def basic_search(x_max, y_max, angle_initial, rover=None, lane_mm=SEARCH_LANE_MM
 
 
 if __name__ == "__main__":
+    stop_on_enter.install()
     basic_search(500, 500, 0)

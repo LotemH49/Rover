@@ -7,12 +7,14 @@ Uses the verified motor map from rover.py:
 Run on the Pi:
 
     python3 verify_large_turn.py
-"""
 
-import time
+Press Enter at any time to stop.
+"""
 
 import board  # pyright: ignore[reportMissingImports]
 from adafruit_motorkit import MotorKit  # pyright: ignore[reportMissingImports]
+
+import stop_on_enter
 
 # Must match rover.py (verified: 1=RR, 2=RL, 3=FL, 4=FR)
 MOTOR_SIGN = {1: -1, 2: +1, 3: +1, 4: -1}
@@ -39,6 +41,7 @@ def stop(motors):
 
 
 def main():
+    stop_on_enter.install()
     kit = MotorKit(i2c=board.I2C())
     motors = {
         1: kit.motor1,
@@ -48,21 +51,25 @@ def main():
     }
 
     try:
-        # Left / CCW arc: right (outer) faster than left (inner)
         print(f"Large LEFT turn (arc) {SECONDS}s...")
         print(f"  left={INNER}  right={OUTER}")
         set_sides(motors, INNER, OUTER)
-        time.sleep(SECONDS)
+        if stop_on_enter.sleep(SECONDS):
+            print("Stopped.")
+            return
 
         print("Stop.")
         stop(motors)
-        time.sleep(PAUSE)
+        if stop_on_enter.sleep(PAUSE):
+            print("Stopped.")
+            return
 
-        # Right / CW arc: left (outer) faster than right (inner)
         print(f"Large RIGHT turn (arc) {SECONDS}s...")
         print(f"  left={OUTER}  right={INNER}")
         set_sides(motors, OUTER, INNER)
-        time.sleep(SECONDS)
+        if stop_on_enter.sleep(SECONDS):
+            print("Stopped.")
+            return
 
         print("Done.")
     finally:

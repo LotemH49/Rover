@@ -6,12 +6,14 @@ moves and report back so we can fix the software mapping.
 No encoders. Run on the Pi:
 
     python3 verify_motor_location.py
-"""
 
-import time
+Press Enter at any time to stop.
+"""
 
 import board  # pyright: ignore[reportMissingImports]
 from adafruit_motorkit import MotorKit  # pyright: ignore[reportMissingImports]
+
+import stop_on_enter
 
 THROTTLE = 0.4
 SECONDS = 3
@@ -19,6 +21,7 @@ PAUSE = 2.0
 
 
 def main():
+    stop_on_enter.install()
     kit = MotorKit(i2c=board.I2C())
     motors = {
         1: kit.motor1,
@@ -32,10 +35,14 @@ def main():
             print(f"=== Motor {num} (HAT M{num}) spinning {SECONDS}s ===")
             print("    Watch which wheel moves, then note it.")
             motor.throttle = THROTTLE
-            time.sleep(SECONDS)
+            if stop_on_enter.sleep(SECONDS):
+                print("Stopped.")
+                return
             motor.throttle = 0
             print(f"=== Motor {num} stopped. Pause {PAUSE}s ===\n")
-            time.sleep(PAUSE)
+            if stop_on_enter.sleep(PAUSE):
+                print("Stopped.")
+                return
 
         print("Done. Tell me which physical wheel moved for M1, M2, M3, M4")
         print("(e.g. front-left, front-right, rear-left, rear-right).")
