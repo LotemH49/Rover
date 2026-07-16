@@ -34,8 +34,9 @@ COUNTS_PER_MM = COUNTS_PER_REV / WHEEL_CIRC_MM     # ~4.41 counts per mm
 # so driving forward means +throttle on the left and -throttle on the right.
 # If any wheel spins the wrong way on the bench, flip its sign here (or swap
 # its two wires in the HAT terminal block -- either fixes it).
-#   1 = front-right   2 = front-left   3 = rear-left   4 = rear-right
-# Front motors were wired opposite the rears on this build, so FL/FR are flipped.
+# Verified HAT channel -> physical wheel (verify_motor_location.py):
+#   1 = rear-right   2 = rear-left   3 = front-left   4 = front-right
+# Right-side motors are mirrored, so their signs are inverted.
 MOTOR_SIGN = {1: -1, 2: +1, 3: +1, 4: -1}
 
 # Encoder GPIO pins (BCM numbering): motor -> (channel A, channel B).
@@ -45,10 +46,10 @@ MOTOR_SIGN = {1: -1, 2: +1, 3: +1, 4: -1}
 #
 #   Motor   Role          Chan A   Chan B   Cobbler labels   Phys pins
 #   -----   ----          ------   ------   --------------   ---------
-#     1     front-right     5        6      GPIO5 / GPIO6    29 / 31
-#     2     front-left     13       19      GPIO13 / GPIO19  33 / 35
-#     3     rear-left      26       20      GPIO26 / GPIO20  37 / 38
-#     4     rear-right     16       21      GPIO16 / GPIO21  36 / 40
+#     1     rear-right      5        6      GPIO5 / GPIO6    29 / 31
+#     2     rear-left      13       19      GPIO13 / GPIO19  33 / 35
+#     3     front-left     26       20      GPIO26 / GPIO20  37 / 38
+#     4     front-right    16       21      GPIO16 / GPIO21  36 / 40
 #
 # Also share GND with the Pi (e.g. phys 30/34/39) and power encoders from
 # 3.3V (phys 1 or 17) unless your encoder boards are already level-shifted.
@@ -59,7 +60,7 @@ ENC_PINS = {
     4: (16, 21),
 }
 
-# Physical sides on this build: motor channels 1 and 2 are swapped.
+# Left = rear-left + front-left; right = rear-right + front-right.
 LEFT_MOTORS = (2, 3)
 RIGHT_MOTORS = (1, 4)
 
@@ -132,17 +133,17 @@ class Rover:
     # ------------------------------------------------------------------
     # Motor layer
     # ------------------------------------------------------------------
-    def _set_logical(self, fl, fr, rl, rr):
-        """Set per-wheel throttles in plain forward(+)/backward(-) terms.
+    def _set_logical(self, m1, m2, m3, m4):
+        """Set per-HAT-channel throttles in plain forward(+)/backward(-) terms.
 
-        Mirroring is applied here via MOTOR_SIGN so callers never deal with it.
+        Channels: 1=RR, 2=RL, 3=FL, 4=FR. MOTOR_SIGN applies mirroring.
         """
-        logical = {1: fl, 2: fr, 3: rl, 4: rr}
+        logical = {1: m1, 2: m2, 3: m3, 4: m4}
         for name, value in logical.items():
             self._motors[name].throttle = MOTOR_SIGN[name] * value
 
     def _drive_sides(self, left, right):
-        """Drive the left wheels (2,3) and right wheels (1,4) at logical throttles."""
+        """Drive left (M2,M3) and right (M1,M4) at logical throttles."""
         self._set_logical(right, left, left, right)
 
     def stop(self):

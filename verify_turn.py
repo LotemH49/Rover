@@ -13,12 +13,10 @@ import time
 import board  # pyright: ignore[reportMissingImports]
 from adafruit_motorkit import MotorKit  # pyright: ignore[reportMissingImports]
 
-# Must match rover.py
-#   1 = front-right   2 = front-left   3 = rear-left   4 = rear-right
+# Must match rover.py (verified: 1=RR, 2=RL, 3=FL, 4=FR)
 MOTOR_SIGN = {1: -1, 2: +1, 3: +1, 4: -1}
-# Physical sides on this build: motor channels 1 and 2 are swapped.
-LEFT_MOTORS = (2, 3)
-RIGHT_MOTORS = (1, 4)
+LEFT_MOTORS = (2, 3)   # rear-left, front-left
+RIGHT_MOTORS = (1, 4)  # rear-right, front-right
 
 THROTTLE = 0.3
 SECONDS = 5

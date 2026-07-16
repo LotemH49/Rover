@@ -26,7 +26,7 @@ from adafruit_motorkit import MotorKit  # pyright: ignore[reportMissingImports]
 # Motor 1 only — match rover ENC_PINS[1]
 ENC_A = 5
 ENC_B = 6
-# Same convention as rover.MOTOR_SIGN[1]
+# Same convention as rover.MOTOR_SIGN[1] (HAT M1 = rear-right)
 MOTOR_SIGN = -1
 
 THROTTLE = 0.4
