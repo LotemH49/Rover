@@ -59,8 +59,9 @@ ENC_PINS = {
     4: (16, 21),
 }
 
-LEFT_MOTORS = (1, 3)
-RIGHT_MOTORS = (2, 4)
+# Physical sides on this build: motors 2,4 are the left wheels; 1,3 the right.
+LEFT_MOTORS = (2, 4)
+RIGHT_MOTORS = (1, 3)
 
 # Default throttles -- modest so the rover is controllable; callers can override.
 DEFAULT_DRIVE_THROTTLE = 0.5
@@ -141,8 +142,8 @@ class Rover:
             self._motors[name].throttle = MOTOR_SIGN[name] * value
 
     def _drive_sides(self, left, right):
-        """Drive the left wheels (1,3) and right wheels (2,4) at logical throttles."""
-        self._set_logical(left, right, left, right)
+        """Drive the left wheels (2,4) and right wheels (1,3) at logical throttles."""
+        self._set_logical(right, left, right, left)
 
     def stop(self):
         """Brake all motors (throttle 0)."""

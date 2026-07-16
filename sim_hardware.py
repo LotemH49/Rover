@@ -165,8 +165,9 @@ class Simulator:
         s3 = self._wheel_speed(3)
         s4 = self._wheel_speed(4)
 
-        v_left = (s1 + s3) / 2.0
-        v_right = (s2 + s4) / 2.0
+        # Physical sides on this build: motors 2,4 are left; 1,3 are right.
+        v_left = (s2 + s4) / 2.0
+        v_right = (s1 + s3) / 2.0
         v = (v_left + v_right) / 2.0
         omega = (v_right - v_left) / TRACK_WIDTH_MM
 
