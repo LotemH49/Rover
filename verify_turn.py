@@ -20,9 +20,9 @@ MOTOR_SIGN = {1: -1, 2: +1, 3: +1, 4: -1}
 LEFT_MOTORS = (2, 3)   # rear-left, front-left
 RIGHT_MOTORS = (1, 4)  # rear-right, front-right
 
-THROTTLE = 0.3
-SECONDS = 5
-PAUSE = 1.0
+THROTTLE = 1
+SECONDS = 2
+PAUSE = .5
 
 
 def set_sides(motors, left, right):
