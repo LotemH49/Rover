@@ -4,6 +4,7 @@ W/S = forward / back
 A/D = spin left / right in place
 - / = = lower / raise drive throttle by 0.1
 [ / ] = lower / raise turn throttle by 0.1
+1 / 2 = lower / raise hold timeout by 0.1s
 
 Hold a key to move; release to stop. Enter to quit.
 
@@ -26,13 +27,18 @@ MOTOR_SIGN = {1: -1, 2: +1, 3: +1, 4: -1}
 LEFT_MOTORS = (2, 3)   # rear-left, front-left
 RIGHT_MOTORS = (1, 4)  # rear-right, front-right
 
-# Longer than typical keyboard initial-repeat delay so hold doesn't stutter.
-RELEASE_TIMEOUT = 0.7
 STEP = 0.1
+TIMEOUT_STEP = 0.1
+TIMEOUT_MIN = 0.1
+TIMEOUT_MAX = 2.0
 
 
 def clamp(value):
     return max(0.0, min(1.0, round(value, 1)))
+
+
+def clamp_timeout(value):
+    return max(TIMEOUT_MIN, min(TIMEOUT_MAX, round(value, 1)))
 
 
 def set_sides(motors, left, right):
@@ -59,15 +65,24 @@ def apply_command(motors, cmd, drive, turn):
         stop(motors)
 
 
+def status(drive, turn, timeout):
+    print(
+        f"  drive={drive:.1f}  turn={turn:.1f}  timeout={timeout:.1f}s",
+        flush=True,
+    )
+
+
 def main():
     drive = 1.0
     turn = 1.0
+    timeout = 0.5
 
     print("WASD rover control")
     print("  W/S drive   A/D turn")
-    print("  -/= drive throttle ±0.1   [/] turn throttle ±0.1")
+    print("  -/= drive ±0.1   [/] turn ±0.1   1/2 timeout ±0.1s")
     print("  Hold key to move, release to stop. Enter to quit.")
-    print(f"  drive={drive:.1f}  turn={turn:.1f}\n")
+    status(drive, turn, timeout)
+    print()
 
     kit = MotorKit(i2c=board.I2C())
     motors = {
@@ -96,18 +111,24 @@ def main():
                     last_key = time.monotonic()
                 elif ch == "-" or key == "_":
                     drive = clamp(drive - STEP)
-                    print(f"  drive={drive:.1f}  turn={turn:.1f}", flush=True)
+                    status(drive, turn, timeout)
                 elif ch in ("=", "+"):
                     drive = clamp(drive + STEP)
-                    print(f"  drive={drive:.1f}  turn={turn:.1f}", flush=True)
+                    status(drive, turn, timeout)
                 elif ch == "[":
                     turn = clamp(turn - STEP)
-                    print(f"  drive={drive:.1f}  turn={turn:.1f}", flush=True)
+                    status(drive, turn, timeout)
                 elif ch == "]":
                     turn = clamp(turn + STEP)
-                    print(f"  drive={drive:.1f}  turn={turn:.1f}", flush=True)
+                    status(drive, turn, timeout)
+                elif ch == "1":
+                    timeout = clamp_timeout(timeout - TIMEOUT_STEP)
+                    status(drive, turn, timeout)
+                elif ch == "2":
+                    timeout = clamp_timeout(timeout + TIMEOUT_STEP)
+                    status(drive, turn, timeout)
 
-            if cmd and (time.monotonic() - last_key) > RELEASE_TIMEOUT:
+            if cmd and (time.monotonic() - last_key) > timeout:
                 cmd = None
 
             apply_command(motors, cmd, drive, turn)
