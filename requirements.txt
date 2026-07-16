@@ -1,7 +1,10 @@
 # Raspberry Pi rover dependencies
-# Install on the Pi with: pip3 install -r requirements.txt
+# Install on the Pi with: pip install -r requirements.txt
 # (Remember to enable I2C first: sudo raspi-config -> Interface Options -> I2C)
+#
+# Pi 5 / Bookworm: Blinka needs lgpio for GPIO and I2C.
 
 adafruit-circuitpython-motorkit
 adafruit-blinka
+lgpio
 RPi.GPIO
