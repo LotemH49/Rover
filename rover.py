@@ -52,11 +52,13 @@ MOTOR_SIGN = {1: -1, 2: +1, 3: +1, 4: -1}
 #     4     rear-right     26       19      GPIO26 / GPIO19   37 / 35
 #
 # Share GND (phys 30/34/39) and encoder V from 3.3V (phys 1 or 17).
+# M4 rear-right encoder is dead (likely fried); omit it so drive/turn
+# average only the three working encoders. Motor 4 still drives.
 ENC_PINS = {
-    1: (16, 20),
-    2: (23, 24),
-    3: (27, 17),
-    4: (26, 19),
+    1: (16, 20),  # front-right
+    2: (23, 24),  # front-left
+    3: (27, 17),  # rear-left
+    # 4: (26, 19),  # rear-right — disabled until replaced
 }
 
 # Left = front-left + rear-left; right = front-right + rear-right.
@@ -83,8 +85,8 @@ class Rover:
             4: self.kit.motor4,
         }
 
-        # Encoder counts and last-A state, per motor.
-        self.counts = {1: 0, 2: 0, 3: 0, 4: 0}
+        # Encoder counts for motors listed in ENC_PINS only.
+        self.counts = {name: 0 for name in ENC_PINS}
 
         self._setup_encoders()
         self.stop()
@@ -119,7 +121,7 @@ class Rover:
             self.counts[name] = 0
 
     def _avg_abs_counts(self):
-        """Mean absolute count across the four wheels (robust to one bad encoder)."""
+        """Mean absolute count across working encoders only (see ENC_PINS)."""
         return sum(abs(c) for c in self.counts.values()) / len(self.counts)
 
     def get_speed_mm_per_s(self, motor=1, interval=0.1):
