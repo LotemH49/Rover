@@ -12,7 +12,12 @@ def install():
     global _stop
     if _stop is not None:
         return _stop
+    return rearm(announce=True)
 
+
+def rearm(announce=False):
+    """Clear stop and start a fresh Enter watcher (for multi-trial scripts)."""
+    global _stop
     _stop = threading.Event()
 
     def _watch():
@@ -23,7 +28,8 @@ def install():
         _stop.set()
 
     threading.Thread(target=_watch, daemon=True).start()
-    print("(Press Enter at any time to stop)", flush=True)
+    if announce:
+        print("(Press Enter at any time to stop)", flush=True)
     return _stop
 
 
