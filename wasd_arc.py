@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """WASD control with arc turns (no spin-in-place).
 
-Hold keys (terminal autorepeat); chords within the hold-timeout count as
-combined:
+Hold keys (terminal autorepeat); chords:
 
   W       = forward
   S       = back
@@ -10,6 +9,10 @@ combined:
   W+D     = arc right
   S+A/S+D = reverse arcs
   A / D   = pivot on inside wheels (outside drives, inside stopped)
+
+Terminals usually only autorepeat the *last* key of a chord. This script
+cross-refreshes latches so holding WA/WD stays an arc instead of flickering
+to pivot/stop. Motor throttles also slew instead of hard-switching.
 
 - / = = drive throttle ±0.1
 [ / ] = arc inner ratio ±0.1  (0.0 = pivot, 1.0 = straight)
@@ -44,15 +47,23 @@ import rover as rover_mod
 
 THROTTLE_STEP = 0.1
 TIMEOUT_STEP = 0.1
-TIMEOUT_MIN, TIMEOUT_MAX = 0.15, 2.0
+TIMEOUT_MIN, TIMEOUT_MAX = 0.20, 2.0
 ARC_STEP = 0.1
 ARC_MIN, ARC_MAX = 0.0, 0.9
 DIST_STEP = 10.0
 DIST_MIN, DIST_MAX = 10.0, 500.0
 
+# Key latch: how long a key stays active without a fresh press/repeat.
+DEFAULT_HOLD_S = 0.70
+# After one chord partner is released, keep the other latched this long
+# so the user can re-assert it (W often stops repeating once A is held).
+RELEASE_GRACE_S = 0.55
+# Max throttle change per second (each side), softens stick-slip spikes.
+SLEW_PER_S = 2.5
+
 SAMPLE_DT = 0.05
 STALL_CPS = 25.0
-CMD_EPS = 0.05  # |throttle| above this counts as "commanded"
+CMD_EPS = 0.05
 LOG_PATH = Path(__file__).resolve().parent / "wasd_arc_log.txt"
 
 
@@ -80,39 +91,34 @@ def status(drive_th, arc_inner, timeout, step_mm):
     )
 
 
-def sides_from_keys(keys, drive_th, arc_inner):
-    """Return (left, right) throttles, or None to stop."""
-    forward = "w" in keys and "s" not in keys
-    backward = "s" in keys and "w" not in keys
-    left = "a" in keys and "d" not in keys
-    right = "d" in keys and "a" not in keys
-
-    if forward:
+def sides_from_axes(drive, turn, drive_th, arc_inner):
+    """drive: 'w'|'s'|None  turn: 'a'|'d'|None → (left, right) or None."""
+    if drive == "w":
         base = drive_th
-    elif backward:
+    elif drive == "s":
         base = -drive_th
     else:
         base = 0.0
 
     if base != 0.0:
-        if left:
+        if turn == "a":
             return (base * arc_inner, base)
-        if right:
+        if turn == "d":
             return (base, base * arc_inner)
         return (base, base)
 
-    if left:
+    if turn == "a":
         return (0.0, drive_th)
-    if right:
+    if turn == "d":
         return (drive_th, 0.0)
     return None
 
 
-def cmd_label(keys, sides) -> str:
+def cmd_label(drive, turn, sides) -> str:
     if sides is None:
         return "stop"
-    keys_s = "".join(sorted(keys)) if keys else "-"
-    return f"keys={keys_s} L={sides[0]:+.2f} R={sides[1]:+.2f}"
+    keys = "".join(k for k in (drive, turn) if k)
+    return f"keys={keys or '-'} L={sides[0]:+.2f} R={sides[1]:+.2f}"
 
 
 def apply_sides(bot, sides):
@@ -120,6 +126,25 @@ def apply_sides(bot, sides):
         bot.stop()
     else:
         bot._drive_sides(sides[0], sides[1])
+
+
+def slew_toward(current, target, dt, rate):
+    """Move current (L,R) toward target by at most rate*dt per side."""
+    if target is None:
+        target = (0.0, 0.0)
+    if current is None:
+        current = (0.0, 0.0)
+    max_step = rate * dt
+    out = []
+    for c, t in zip(current, target):
+        delta = t - c
+        if abs(delta) <= max_step:
+            out.append(t)
+        else:
+            out.append(c + max_step if delta > 0 else c - max_step)
+    if abs(out[0]) < 0.01 and abs(out[1]) < 0.01 and target == (0.0, 0.0):
+        return None
+    return (out[0], out[1])
 
 
 def run_nudge(bot, fn):
@@ -136,6 +161,72 @@ def run_nudge(bot, fn):
             return ch
         thread.join(0.05)
     return None
+
+
+class ChordLatch:
+    """Drive/turn latches that survive single-key autorepeat."""
+
+    def __init__(self, hold_s: float):
+        self.hold_s = hold_s
+        self.drive: str | None = None
+        self.turn: str | None = None
+        self.drive_until = 0.0
+        self.turn_until = 0.0
+        self._was_chord = False
+
+    def clear(self) -> None:
+        self.drive = None
+        self.turn = None
+        self.drive_until = 0.0
+        self.turn_until = 0.0
+        self._was_chord = False
+
+    def note_key(self, key: str, now: float) -> None:
+        hold = self.hold_s
+        if key in ("w", "s"):
+            if self.drive and self.drive != key:
+                # Opposite drive replaces.
+                self.turn = None
+                self.turn_until = 0.0
+            self.drive = key
+            self.drive_until = now + hold
+            # While W/S repeats, keep an existing turn chord alive.
+            if self.turn is not None:
+                self.turn_until = now + hold
+        elif key in ("a", "d"):
+            if self.turn and self.turn != key:
+                pass  # opposite turn replaces below
+            self.turn = key
+            self.turn_until = now + hold
+            # While A/D repeats, keep an existing drive chord alive.
+            # (Fixes: only the last chord key autorepeats.)
+            if self.drive is not None:
+                self.drive_until = now + hold
+
+    def poll(self, now: float) -> tuple[str | None, str | None]:
+        drive_alive = self.drive is not None and now <= self.drive_until
+        turn_alive = self.turn is not None and now <= self.turn_until
+
+        if drive_alive and turn_alive:
+            self._was_chord = True
+        elif self._was_chord:
+            # One partner dropped: grace so the remaining axis can be re-held.
+            if drive_alive and not turn_alive:
+                self.drive_until = max(self.drive_until, now + RELEASE_GRACE_S)
+                self._was_chord = False
+            elif turn_alive and not drive_alive:
+                self.turn_until = max(self.turn_until, now + RELEASE_GRACE_S)
+                self._was_chord = False
+            else:
+                self._was_chord = False
+
+        drive = self.drive if (self.drive and now <= self.drive_until) else None
+        turn = self.turn if (self.turn and now <= self.turn_until) else None
+        if drive is None:
+            self.drive = None
+        if turn is None:
+            self.turn = None
+        return drive, turn
 
 
 class SessionLog:
@@ -211,7 +302,6 @@ class SessionLog:
 
         if stalled:
             self.stall_samples += 1
-            # Log at most ~4 Hz of stall lines to keep paste size sane.
             if self.elapsed() - self._last_stall_log_t >= 0.25:
                 self._last_stall_log_t = self.elapsed()
                 detail = " ".join(stalled)
@@ -248,26 +338,25 @@ class SessionLog:
         else:
             lines.append("  (none)")
         lines.append("")
-        lines.append(f"command timeline ({len(self.events)} lines, stalls included):")
-        # Prefer command changes; include stalls already in events.
         cmd_lines = [e for e in self.events if " CMD " in e]
+        lines.append(f"command timeline ({len(cmd_lines)} CMD lines):")
         lines.extend(cmd_lines[:60])
         if len(cmd_lines) > 60:
             lines.append(f"  ... ({len(cmd_lines) - 60} more CMD lines truncated)")
         lines.append("=" * 72)
-        text = "\n".join(lines) + "\n"
-        path.write_text(text)
+        path.write_text("\n".join(lines) + "\n")
         return path
 
 
 def main():
     drive_th = 0.5
     arc_inner = 0.4
-    timeout = 0.40
+    timeout = DEFAULT_HOLD_S
     step_mm = 50.0
     log = SessionLog()
     log.drive_th = drive_th
     log.arc_inner = arc_inner
+    latch = ChordLatch(timeout)
 
     stop_on_enter._stop = threading.Event()
 
@@ -275,7 +364,7 @@ def main():
     print("  Hold W forward, S back.")
     print("  Hold W+A arc left, W+D arc right (S+A / S+D reverse).")
     print("  A or D alone = pivot on inside wheels.")
-    print("  Tip: keep both chord keys repeating within timeout.")
+    print("  Chords stay latched even if only one key autorepeats.")
     print("  -/= drive th   [/] arc inner   1/2 hold timeout")
     print("  e/c encoder drive nudge   3/4 nudge mm   Enter quit")
     print(f"  Session log → {LOG_PATH.name} (paste that file back)\n")
@@ -285,9 +374,11 @@ def main():
     bot = rover_mod.Rover()
     fd = sys.stdin.fileno()
     old = termios.tcgetattr(fd)
-    last_seen: dict[str, float] = {}
     pending = None
-    last_sides = object()
+    target_sides = None
+    applied_sides = None
+    last_logged = object()
+    last_loop = time.monotonic()
 
     try:
         tty.setcbreak(fd)
@@ -296,10 +387,12 @@ def main():
             if pending is not None:
                 ch = pending
                 pending = None
-            elif select.select([sys.stdin], [], [], 0.05)[0]:
+            elif select.select([sys.stdin], [], [], 0.02)[0]:
                 ch = sys.stdin.read(1)
 
             now = time.monotonic()
+            dt = min(0.05, max(0.001, now - last_loop))
+            last_loop = now
 
             if ch is not None:
                 if ch in ("\n", "\r"):
@@ -307,10 +400,12 @@ def main():
                 key = ch.lower()
 
                 if key in "wasd":
-                    last_seen[key] = now
+                    latch.note_key(key, now)
                 elif key == "e":
                     bot.stop()
-                    last_seen.clear()
+                    latch.clear()
+                    target_sides = None
+                    applied_sides = None
                     log.note_cmd("nudge +drive")
                     result = run_nudge(
                         bot, lambda: bot.drive(step_mm, throttle=drive_th)
@@ -321,7 +416,9 @@ def main():
                         pending = result
                 elif key == "c":
                     bot.stop()
-                    last_seen.clear()
+                    latch.clear()
+                    target_sides = None
+                    applied_sides = None
                     log.note_cmd("nudge -drive")
                     result = run_nudge(
                         bot, lambda: bot.drive(-step_mm, throttle=drive_th)
@@ -348,9 +445,11 @@ def main():
                     status(drive_th, arc_inner, timeout, step_mm)
                 elif ch == "1":
                     timeout = clamp_timeout(timeout - TIMEOUT_STEP)
+                    latch.hold_s = timeout
                     status(drive_th, arc_inner, timeout, step_mm)
                 elif ch == "2":
                     timeout = clamp_timeout(timeout + TIMEOUT_STEP)
+                    latch.hold_s = timeout
                     status(drive_th, arc_inner, timeout, step_mm)
                 elif ch == "3":
                     step_mm = clamp_dist(step_mm - DIST_STEP)
@@ -359,17 +458,18 @@ def main():
                     step_mm = clamp_dist(step_mm + DIST_STEP)
                     status(drive_th, arc_inner, timeout, step_mm)
 
-            active = {k for k, t in last_seen.items() if (now - t) <= timeout}
-            for k in list(last_seen):
-                if k not in active:
-                    del last_seen[k]
+            drive, turn = latch.poll(now)
+            target_sides = sides_from_axes(drive, turn, drive_th, arc_inner)
+            applied_sides = slew_toward(applied_sides, target_sides, dt, SLEW_PER_S)
 
-            sides = sides_from_keys(active, drive_th, arc_inner)
-            if sides != last_sides:
-                last_sides = sides
-                log.note_cmd(cmd_label(active, sides))
-            apply_sides(bot, sides)
-            log.sample(bot, sides)
+            # Log stable *target* intent (not every slew step).
+            label = cmd_label(drive, turn, target_sides)
+            if label != last_logged:
+                last_logged = label
+                log.note_cmd(label)
+
+            apply_sides(bot, applied_sides)
+            log.sample(bot, applied_sides)
     finally:
         stop_on_enter._stop.set()
         bot.stop()
