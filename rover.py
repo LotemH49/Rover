@@ -73,7 +73,7 @@ RIGHT_MOTORS = (1, 4)
 
 # Default throttles -- modest so the rover is controllable; callers can override.
 DEFAULT_DRIVE_THROTTLE = 0.5
-DEFAULT_TURN_THROTTLE = 0.3
+DEFAULT_TURN_THROTTLE = 0.5
 
 # Default lane spacing for basic_search (matches sim grid lines).
 SEARCH_LANE_MM = 100
