@@ -18,7 +18,7 @@ import stop_on_enter
 import rover as rover_mod
 
 # Throttle ladder — find the gentlest turn that still moves cleanly.
-THROTTLES = [0.20, 0.30, 0.40, 0.50]
+THROTTLES = [0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90, 1.00]
 DURATION_S = 2.5
 SAMPLE_DT = 0.02
 WARMUP_S = 0.4
@@ -261,10 +261,9 @@ def recommend(results):
             f"  Try TURN_THROTTLE = {best:.2f} and re-test square on carpet/floor."
         )
     else:
-        lines.append("  No clean throttle in this sweep.")
         lines.append(
-            "  Try softer surface, check FL mechanical bind, "
-            "or re-run with THROTTLES including 0.15."
+            "  No clean throttle in this sweep. "
+            "Try a different surface, check FL bind, or arc turns instead of spin-in-place."
         )
 
     # Worst offenders overall
