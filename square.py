@@ -1,6 +1,6 @@
-"""Drive a square: forward, then spin-in-place turn, four times.
+"""Drive a 40 cm square using encoder closed-loop drive/turn.
 
-Timed open-loop (no encoders). Uses verified motor map from rover.py.
+Each side: drive 400 mm, then spin left 90 degrees. Four times.
 
 Run on the Pi:
 
@@ -9,66 +9,46 @@ Run on the Pi:
 Press Enter at any time to stop.
 """
 
-import board  # pyright: ignore[reportMissingImports]
-from adafruit_motorkit import MotorKit  # pyright: ignore[reportMissingImports]
-
 import stop_on_enter
+import rover as rover_mod
 
-# Must match rover.py (verified: 1=FR, 2=FL, 3=RL, 4=RR)
-MOTOR_SIGN = {1: -1, 2: +1, 3: +1, 4: -1}
-LEFT_MOTORS = (2, 3)   # front-left, rear-left
-RIGHT_MOTORS = (1, 4)  # front-right, rear-right
-
+SIDE_MM = 400.0          # 40 cm
+CORNER_DEG = 90.0
 DRIVE_THROTTLE = 0.5
-DRIVE_SECONDS = 2.0
-TURN_THROTTLE = 1.0
-TURN_SECONDS = 2
+TURN_THROTTLE = 0.5
 SIDES = 4
-
-
-def set_sides(motors, left, right):
-    for num in LEFT_MOTORS:
-        motors[num].throttle = MOTOR_SIGN[num] * left
-    for num in RIGHT_MOTORS:
-        motors[num].throttle = MOTOR_SIGN[num] * right
-
-
-def stop(motors):
-    set_sides(motors, 0, 0)
 
 
 def main():
     stop_on_enter.install()
-    kit = MotorKit(i2c=board.I2C())
-    motors = {
-        1: kit.motor1,
-        2: kit.motor2,
-        3: kit.motor3,
-        4: kit.motor4,
-    }
+    bot = rover_mod.Rover()
 
     try:
+        print(f"Encoder square: {SIDE_MM:.0f} mm sides, {CORNER_DEG:.0f} deg corners")
         for side in range(1, SIDES + 1):
-            print(f"Side {side}/{SIDES}: drive forward {DRIVE_SECONDS}s @ {DRIVE_THROTTLE}")
-            set_sides(motors, DRIVE_THROTTLE, DRIVE_THROTTLE)
-            if stop_on_enter.sleep(DRIVE_SECONDS):
+            if stop_on_enter.stopped():
                 print("Stopped.")
                 return
 
-            stop(motors)
-
-            print(f"Side {side}/{SIDES}: turn left in place {TURN_SECONDS}s @ {TURN_THROTTLE}")
-            # CCW: left backward, right forward
-            set_sides(motors, -TURN_THROTTLE, +TURN_THROTTLE)
-            if stop_on_enter.sleep(TURN_SECONDS):
+            print(f"Side {side}/{SIDES}: drive {SIDE_MM:.0f} mm @ {DRIVE_THROTTLE}")
+            bot.drive(SIDE_MM, throttle=DRIVE_THROTTLE)
+            if stop_on_enter.stopped():
                 print("Stopped.")
                 return
 
-            stop(motors)
+            print(f"Side {side}/{SIDES}: turn left {CORNER_DEG:.0f} deg @ {TURN_THROTTLE}")
+            bot.turn(CORNER_DEG, throttle=TURN_THROTTLE)
+            if stop_on_enter.stopped():
+                print("Stopped.")
+                return
 
         print("Square done.")
     finally:
-        stop(motors)
+        bot.stop()
+        try:
+            bot.cleanup()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":
