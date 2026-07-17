@@ -22,8 +22,6 @@ import statistics
 import sys
 import time
 
-from adafruit_motorkit import MotorKit
-
 import stop_on_enter
 from rover import (
     COUNTS_PER_MM,
@@ -166,8 +164,7 @@ def main() -> int:
     print("  Tip: mark a line on the floor / use a wall corner as reference.")
     print("  While spinning: Enter marks 90° and stops.")
 
-    kit = MotorKit()
-    rover = Rover(kit)
+    rover = Rover()
     trials: list[dict] = []
 
     try:
