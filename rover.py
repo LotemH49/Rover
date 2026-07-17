@@ -260,6 +260,46 @@ class Rover:
         finally:
             self.stop()
 
+    def pivot(self, angle_deg, throttle=0.6):
+        """Pivot about one side: only the outside wheels drive.
+
+        Convention: positive = counterclockwise (left turn) → right side drives,
+                    left side stopped.
+                    negative = clockwise (right turn) → left side drives.
+
+        Moving wheels sweep roughly radius TRACK_WIDTH_MM about the inside.
+        """
+        if angle_deg == 0:
+            return
+
+        # Full track as pivot radius (inside wheels ≈ fixed).
+        arc_mm = math.radians(abs(angle_deg)) * TRACK_WIDTH_MM
+        target = arc_mm * COUNTS_PER_MM
+        speed = abs(throttle)
+
+        if angle_deg > 0:
+            left, right = 0.0, speed
+            moving = RIGHT_MOTORS
+        else:
+            left, right = speed, 0.0
+            moving = LEFT_MOTORS
+
+        self._reset_counts()
+        self._drive_sides(left, right)
+        try:
+            while True:
+                if stop_on_enter.stopped():
+                    break
+                vals = [abs(self.counts[m]) for m in moving if m in self.counts]
+                if not vals:
+                    # No encoder on moving side — time fallback (~rough).
+                    break
+                if sum(vals) / len(vals) >= target:
+                    break
+                time.sleep(0.005)
+        finally:
+            self.stop()
+
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
