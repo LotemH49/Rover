@@ -4,6 +4,8 @@ Spins M1, then M2, then M3, then M4. While a motor runs, watches every
 encoder GPIO for pulses. Press Enter to stop that motor, print which pins
 saw activity, then move to the next motor.
 
+Uses lgpio (Pi 5 compatible) — classic RPi.GPIO does not work on Pi 5.
+
 After each step, note which physical wheel moved (FL / FR / RL / RR).
 Paste the full terminal output back into chat so we can set MOTOR_SIGN /
 ENC_PINS / LEFT_MOTORS correctly.
@@ -23,11 +25,10 @@ import time
 import tty
 
 import board  # pyright: ignore[reportMissingImports]
-import RPi.GPIO as GPIO  # pyright: ignore[reportMissingImports, reportMissingModuleSource]
+import lgpio  # pyright: ignore[reportMissingImports]
 from adafruit_motorkit import MotorKit  # pyright: ignore[reportMissingImports]
 
 # All candidate encoder GPIOs from the T-Cobbler plan (BCM).
-# Pair labels are just for printing — we count every pin independently.
 CANDIDATE_PINS = {
     5: "GPIO5  (phys 29)",
     6: "GPIO6  (phys 31)",
@@ -42,20 +43,34 @@ CANDIDATE_PINS = {
 THROTTLE = 0.4
 
 
+def open_gpiochip():
+    """Pi 5 uses gpiochip4; older Pis use gpiochip0."""
+    last_err = None
+    for chip in (4, 0):
+        try:
+            return lgpio.gpiochip_open(chip), chip
+        except Exception as exc:
+            last_err = exc
+    raise RuntimeError(f"Could not open gpiochip: {last_err}")
+
+
 class EncoderWatch:
     def __init__(self):
         self.counts = {pin: 0 for pin in CANDIDATE_PINS}
         self._lock = threading.Lock()
-        GPIO.setmode(GPIO.BCM)
-        GPIO.setwarnings(False)
+        self._callbacks = []
+        self.handle, chip = open_gpiochip()
+        print(f"  Using /dev/gpiochip{chip} (lgpio)\n")
+
         for pin in CANDIDATE_PINS:
-            GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-            GPIO.add_event_detect(
-                pin, GPIO.BOTH, callback=self._make_cb(pin)
+            lgpio.gpio_claim_input(self.handle, pin, lgpio.SET_PULL_UP)
+            cb = lgpio.callback(
+                self.handle, pin, lgpio.BOTH_EDGES, self._make_cb(pin)
             )
+            self._callbacks.append(cb)
 
     def _make_cb(self, pin):
-        def cb(_channel):
+        def cb(_chip, _gpio, _level, _timestamp):
             with self._lock:
                 self.counts[pin] += 1
         return cb
@@ -70,7 +85,15 @@ class EncoderWatch:
             return dict(self.counts)
 
     def cleanup(self):
-        GPIO.cleanup()
+        for cb in self._callbacks:
+            try:
+                cb.cancel()
+            except Exception:
+                pass
+        try:
+            lgpio.gpiochip_close(self.handle)
+        except Exception:
+            pass
 
 
 def wait_enter():

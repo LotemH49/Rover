@@ -1,11 +1,12 @@
 # Raspberry Pi rover dependencies
-# On a Pi 5: sudo apt install python3-lgpio
-# then: python3 -m venv --system-site-packages .venv
-# then: pip install -r requirements.txt
-# (Remember to enable I2C first: sudo raspi-config -> Interface Options -> I2C)
+# On a Pi 5:
+#   sudo apt install -y python3-lgpio python3-rpi-lgpio
+#   python3 -m venv --system-site-packages .venv
+#   pip install -r requirements.txt
+# (Remember to enable I2C: sudo raspi-config -> Interface Options -> I2C)
 #
-# Pi 5 / Bookworm: Blinka needs lgpio. Prefer apt python3-lgpio over pip.
+# Pi 5: classic RPi.GPIO does NOT work. Use apt python3-rpi-lgpio
+# (RPi.GPIO-compatible API on top of lgpio) plus python3-lgpio for Blinka.
 
 adafruit-circuitpython-motorkit
 adafruit-blinka
-RPi.GPIO

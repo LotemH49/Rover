@@ -32,13 +32,16 @@ On a **Pi 5**, install system `lgpio` first (pip cannot build it without extra t
 
 ```bash
 sudo apt update
-sudo apt install -y python3-venv python3-pip python3-lgpio
+sudo apt install -y python3-venv python3-pip python3-lgpio python3-rpi-lgpio
 cd ~/Rover
 python3 -m venv --system-site-packages .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 python3 startup_test.py
 ```
+
+`python3-rpi-lgpio` provides an `RPi.GPIO`-compatible API that works on Pi 5
+(classic `RPi.GPIO` fails with "Cannot determine SOC peripheral base address").
 
 If you already have a venv **without** system site packages, recreate it:
 
