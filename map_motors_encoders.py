@@ -63,7 +63,11 @@ class EncoderWatch:
         print(f"  Using /dev/gpiochip{chip} (lgpio)\n")
 
         for pin in CANDIDATE_PINS:
-            lgpio.gpio_claim_input(self.handle, pin, lgpio.SET_PULL_UP)
+            # claim_input + callback silently gets zero edges on Pi 5 / lgpio;
+            # alerts are required for edge callbacks to fire.
+            lgpio.gpio_claim_alert(
+                self.handle, pin, lgpio.BOTH_EDGES, lgpio.SET_PULL_UP
+            )
             cb = lgpio.callback(
                 self.handle, pin, lgpio.BOTH_EDGES, self._make_cb(pin)
             )
