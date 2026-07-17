@@ -25,7 +25,6 @@ import time
 import stop_on_enter
 from rover import (
     COUNTS_PER_MM,
-    DEFAULT_TURN_THROTTLE,
     LEFT_MOTORS,
     RIGHT_MOTORS,
     TRACK_WIDTH_MM,
@@ -145,8 +144,8 @@ def main() -> int:
     parser.add_argument(
         "--throttle",
         type=float,
-        default=DEFAULT_TURN_THROTTLE,
-        help=f"in-place spin throttle (default {DEFAULT_TURN_THROTTLE})",
+        default=0.8,
+        help="in-place spin throttle (default 0.8)",
     )
     parser.add_argument(
         "--trials",
