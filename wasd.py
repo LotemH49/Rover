@@ -1,14 +1,15 @@
-"""WASD manual rover control.
+"""WASD control using encoder closed-loop drive/turn (rover.py).
 
-W/S = forward / back
-A/D = spin left / right in place
-- / = = lower / raise drive throttle by 0.1
-[ / ] = lower / raise turn throttle by 0.1
-1 / 2 = lower / raise hold timeout by 0.1s
+W/S = drive forward / back by step_mm (encoders)
+A/D = spin left / right by step_deg (encoders)
+- / = = drive throttle ±0.1
+[ / ] = turn throttle ±0.1
+1 / 2 = step distance ±10 mm
+3 / 4 = step angle ±5 deg
 
-Hold a key to move; release to stop. Enter to quit.
+Hold a key (key-repeat) to keep stepping. Enter aborts and quits.
 
-Run on the Pi (real terminal / SSH):
+Run on the Pi:
 
     python3 wasd.py
 """
@@ -16,124 +17,173 @@ Run on the Pi (real terminal / SSH):
 import select
 import sys
 import termios
+import threading
 import time
 import tty
 
-import board  # pyright: ignore[reportMissingImports]
-from adafruit_motorkit import MotorKit  # pyright: ignore[reportMissingImports]
+import stop_on_enter
+import rover as rover_mod
 
-# Must match rover.py (verified: 1=FR, 2=FL, 3=RL, 4=RR)
-MOTOR_SIGN = {1: -1, 2: +1, 3: +1, 4: -1}
-LEFT_MOTORS = (2, 3)   # front-left, rear-left
-RIGHT_MOTORS = (1, 4)  # front-right, rear-right
-
-STEP = 0.1
-TIMEOUT_STEP = 0.1
-TIMEOUT_MIN = 0.1
-TIMEOUT_MAX = 2.0
+THROTTLE_STEP = 0.1
+DIST_STEP = 10.0
+ANGLE_STEP = 5.0
+DIST_MIN, DIST_MAX = 10.0, 500.0
+ANGLE_MIN, ANGLE_MAX = 5.0, 180.0
 
 
-def clamp(value):
-    return max(0.0, min(1.0, round(value, 1)))
+def clamp_throttle(value):
+    return max(0.1, min(1.0, round(value, 1)))
 
 
-def clamp_timeout(value):
-    return max(TIMEOUT_MIN, min(TIMEOUT_MAX, round(value, 1)))
+def clamp_dist(value):
+    return max(DIST_MIN, min(DIST_MAX, round(value)))
 
 
-def set_sides(motors, left, right):
-    for num in LEFT_MOTORS:
-        motors[num].throttle = MOTOR_SIGN[num] * left
-    for num in RIGHT_MOTORS:
-        motors[num].throttle = MOTOR_SIGN[num] * right
+def clamp_angle(value):
+    return max(ANGLE_MIN, min(ANGLE_MAX, round(value)))
 
 
-def stop(motors):
-    set_sides(motors, 0, 0)
-
-
-def apply_command(motors, cmd, drive, turn):
-    if cmd == "w":
-        set_sides(motors, drive, drive)
-    elif cmd == "s":
-        set_sides(motors, -drive, -drive)
-    elif cmd == "a":
-        set_sides(motors, -turn, turn)
-    elif cmd == "d":
-        set_sides(motors, turn, -turn)
-    else:
-        stop(motors)
-
-
-def status(drive, turn, timeout):
+def status(drive_th, turn_th, step_mm, step_deg):
     print(
-        f"  drive={drive:.1f}  turn={turn:.1f}  timeout={timeout:.1f}s",
+        f"  drive_th={drive_th:.1f}  turn_th={turn_th:.1f}  "
+        f"step={step_mm:.0f}mm / {step_deg:.0f}deg",
         flush=True,
     )
 
 
-def main():
-    drive = 1.0
-    turn = 1.0
-    timeout = 0.5
+def run_move(bot, fn):
+    """Run a blocking rover move in a thread so we can still read Enter."""
+    thread = threading.Thread(target=fn, daemon=True)
+    thread.start()
+    while thread.is_alive():
+        if select.select([sys.stdin], [], [], 0.05)[0]:
+            ch = sys.stdin.read(1)
+            if ch in ("\n", "\r"):
+                stop_on_enter._stop.set()
+                thread.join()
+                return "\n"
+            return ch
+        thread.join(0.05)
+    return None
 
-    print("WASD rover control")
-    print("  W/S drive   A/D turn")
-    print("  -/= drive ±0.1   [/] turn ±0.1   1/2 timeout ±0.1s")
-    print("  Hold key to move, release to stop. Enter to quit.")
-    status(drive, turn, timeout)
+
+def main():
+    drive_th = 0.5
+    turn_th = 1.0
+    step_mm = 50.0
+    step_deg = 15.0
+
+    stop_on_enter._stop = threading.Event()
+
+    print("WASD encoder control (closed-loop)")
+    print("  W/S drive step   A/D turn step")
+    print("  -/= drive throttle   [/] turn throttle")
+    print("  1/2 step mm ±10   3/4 step deg ±5")
+    print("  Hold to repeat steps. Enter to quit.\n")
+    status(drive_th, turn_th, step_mm, step_deg)
     print()
 
-    kit = MotorKit(i2c=board.I2C())
-    motors = {
-        1: kit.motor1,
-        2: kit.motor2,
-        3: kit.motor3,
-        4: kit.motor4,
-    }
-
+    bot = rover_mod.Rover()
     fd = sys.stdin.fileno()
     old = termios.tcgetattr(fd)
-    cmd = None
-    last_key = 0.0
+    pending = None
 
     try:
         tty.setcbreak(fd)
-        while True:
-            if select.select([sys.stdin], [], [], 0.05)[0]:
+
+        while not stop_on_enter.stopped():
+            if pending is not None:
+                ch = pending
+                pending = None
+            elif select.select([sys.stdin], [], [], 0.1)[0]:
                 ch = sys.stdin.read(1)
-                if ch in ("\n", "\r"):
-                    break
+            else:
+                continue
 
-                key = ch.lower()
-                if key in "wasd":
-                    cmd = key
-                    last_key = time.monotonic()
-                elif ch == "-" or key == "_":
-                    drive = clamp(drive - STEP)
-                    status(drive, turn, timeout)
-                elif ch in ("=", "+"):
-                    drive = clamp(drive + STEP)
-                    status(drive, turn, timeout)
-                elif ch == "[":
-                    turn = clamp(turn - STEP)
-                    status(drive, turn, timeout)
-                elif ch == "]":
-                    turn = clamp(turn + STEP)
-                    status(drive, turn, timeout)
-                elif ch == "1":
-                    timeout = clamp_timeout(timeout - TIMEOUT_STEP)
-                    status(drive, turn, timeout)
-                elif ch == "2":
-                    timeout = clamp_timeout(timeout + TIMEOUT_STEP)
-                    status(drive, turn, timeout)
+            if ch in ("\n", "\r"):
+                break
 
-            if cmd and (time.monotonic() - last_key) > timeout:
-                cmd = None
+            key = ch.lower()
 
-            apply_command(motors, cmd, drive, turn)
+            if key in "wasd":
+                while not stop_on_enter.stopped():
+                    if key == "w":
+                        move = lambda: bot.drive(step_mm, throttle=drive_th)
+                    elif key == "s":
+                        move = lambda: bot.drive(-step_mm, throttle=drive_th)
+                    elif key == "a":
+                        move = lambda: bot.turn(step_deg, throttle=turn_th)
+                    else:
+                        move = lambda: bot.turn(-step_deg, throttle=turn_th)
+
+                    result = run_move(bot, move)
+
+                    if result == "\n" or stop_on_enter.stopped():
+                        stop_on_enter._stop.set()
+                        break
+
+                    # If a key arrived mid-move, handle it next.
+                    if result is not None:
+                        k = result.lower()
+                        if k in "wasd":
+                            key = k
+                            continue
+                        pending = result
+                        break
+
+                    # After a finished step, see if key-repeat wants another.
+                    time.sleep(0.02)
+                    nxt = None
+                    while select.select([sys.stdin], [], [], 0)[0]:
+                        ch2 = sys.stdin.read(1)
+                        if ch2 in ("\n", "\r"):
+                            stop_on_enter._stop.set()
+                            nxt = None
+                            break
+                        k2 = ch2.lower()
+                        if k2 in "wasd":
+                            nxt = k2
+                        else:
+                            pending = ch2
+                    if stop_on_enter.stopped():
+                        break
+                    if nxt is None:
+                        break
+                    key = nxt
+                continue
+
+            if key == "-" or key == "_":
+                drive_th = clamp_throttle(drive_th - THROTTLE_STEP)
+                status(drive_th, turn_th, step_mm, step_deg)
+            elif key in ("=", "+"):
+                drive_th = clamp_throttle(drive_th + THROTTLE_STEP)
+                status(drive_th, turn_th, step_mm, step_deg)
+            elif key == "[":
+                turn_th = clamp_throttle(turn_th - THROTTLE_STEP)
+                status(drive_th, turn_th, step_mm, step_deg)
+            elif key == "]":
+                turn_th = clamp_throttle(turn_th + THROTTLE_STEP)
+                status(drive_th, turn_th, step_mm, step_deg)
+            elif key == "1":
+                step_mm = clamp_dist(step_mm - DIST_STEP)
+                status(drive_th, turn_th, step_mm, step_deg)
+            elif key == "2":
+                step_mm = clamp_dist(step_mm + DIST_STEP)
+                status(drive_th, turn_th, step_mm, step_deg)
+            elif key == "3":
+                step_deg = clamp_angle(step_deg - ANGLE_STEP)
+                status(drive_th, turn_th, step_mm, step_deg)
+            elif key == "4":
+                step_deg = clamp_angle(step_deg + ANGLE_STEP)
+                status(drive_th, turn_th, step_mm, step_deg)
+
     finally:
-        stop(motors)
+        stop_on_enter._stop.set()
+        bot.stop()
+        try:
+            bot.cleanup()
+        except Exception:
+            pass
         termios.tcsetattr(fd, termios.TCSADRAIN, old)
         print("Quit.")
 
