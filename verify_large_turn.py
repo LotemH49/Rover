@@ -2,7 +2,7 @@
 
 Both sides drive forward; outer side is faster so the rover curves.
 Uses the verified motor map from rover.py:
-  M1=RR, M2=RL, M3=FL, M4=FR
+  M1=FR, M2=FL, M3=RL, M4=RR
 
 Run on the Pi:
 
@@ -16,10 +16,10 @@ from adafruit_motorkit import MotorKit  # pyright: ignore[reportMissingImports]
 
 import stop_on_enter
 
-# Must match rover.py (verified: 1=RR, 2=RL, 3=FL, 4=FR)
+# Must match rover.py (verified: 1=FR, 2=FL, 3=RL, 4=RR)
 MOTOR_SIGN = {1: -1, 2: +1, 3: +1, 4: -1}
-LEFT_MOTORS = (2, 3)   # rear-left, front-left
-RIGHT_MOTORS = (1, 4)  # rear-right, front-right
+LEFT_MOTORS = (2, 3)   # front-left, rear-left
+RIGHT_MOTORS = (1, 4)  # front-right, rear-right
 
 # Outer / inner throttle for an arc (both forward).
 OUTER = 1

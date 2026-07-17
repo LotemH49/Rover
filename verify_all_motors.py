@@ -15,7 +15,7 @@ from adafruit_motorkit import MotorKit  # pyright: ignore[reportMissingImports]
 
 import stop_on_enter
 
-# Same as rover.py (verified: 1=RR, 2=RL, 3=FL, 4=FR)
+# Same as rover.py (verified: 1=FR, 2=FL, 3=RL, 4=RR)
 MOTOR_SIGN = {1: -1, 2: +1, 3: +1, 4: -1}
 
 THROTTLE = 0.4

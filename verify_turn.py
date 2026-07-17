@@ -15,10 +15,10 @@ from adafruit_motorkit import MotorKit  # pyright: ignore[reportMissingImports]
 
 import stop_on_enter
 
-# Must match rover.py (verified: 1=RR, 2=RL, 3=FL, 4=FR)
+# Must match rover.py (verified: 1=FR, 2=FL, 3=RL, 4=RR)
 MOTOR_SIGN = {1: -1, 2: +1, 3: +1, 4: -1}
-LEFT_MOTORS = (2, 3)   # rear-left, front-left
-RIGHT_MOTORS = (1, 4)  # rear-right, front-right
+LEFT_MOTORS = (2, 3)   # front-left, rear-left
+RIGHT_MOTORS = (1, 4)  # front-right, rear-right
 
 THROTTLE = 1
 SECONDS = 2
