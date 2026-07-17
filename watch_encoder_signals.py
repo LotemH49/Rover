@@ -19,14 +19,14 @@ import tty
 import lgpio  # pyright: ignore[reportMissingImports]
 
 PINS = {
-    5: "GPIO5 ",
-    6: "GPIO6 ",
-    13: "GPIO13",
-    16: "GPIO16",  # M1 FR A (green)
-    19: "GPIO19",
-    20: "GPIO20",  # M1 FR B (yellow)
-    21: "GPIO21",
-    26: "GPIO26",
+    16: "GPIO16 M1-FR-A",
+    20: "GPIO20 M1-FR-B",
+    23: "GPIO23 M2-FL-A",
+    24: "GPIO24 M2-FL-B",
+    27: "GPIO27 M3-RL-A",
+    17: "GPIO17 M3-RL-B",
+    26: "GPIO26 M4-RR-A",
+    19: "GPIO19 M4-RR-B",
 }
 
 

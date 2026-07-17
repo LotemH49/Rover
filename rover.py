@@ -42,23 +42,21 @@ COUNTS_PER_MM = COUNTS_PER_REV / WHEEL_CIRC_MM     # ~4.41 counts per mm
 MOTOR_SIGN = {1: -1, 2: +1, 3: +1, 4: -1}
 
 # Encoder GPIO pins (BCM numbering): motor -> (channel A, channel B).
-# Layout uses the T-Cobbler bottom block; pairs may not match the original
-# "neat" adjacency plan — use what is actually wired.
+# Wired on T-Cobbler: green = A, yellow = B (verified by hand).
 #
-#   Motor   Role          Chan A   Chan B   Cobbler labels   Phys pins
-#   -----   ----          ------   ------   --------------   ---------
-#     1     front-right    16       20      GPIO16 / GPIO20  36 / 38
-#     2     front-left     13       19      GPIO13 / GPIO19  33 / 35  (provisional)
-#     3     rear-left      26        5      GPIO26 / GPIO5   37 / 29  (provisional)
-#     4     rear-right      6       21      GPIO6  / GPIO21  31 / 40  (provisional)
+#   Motor   Role          Chan A   Chan B   Cobbler labels    Phys pins
+#   -----   ----          ------   ------   ---------------   ---------
+#     1     front-right    16       20      GPIO16 / GPIO20   36 / 38
+#     2     front-left     23       24      GPIO23 / GPIO24   16 / 18
+#     3     rear-left      27       17      GPIO27 / GPIO17   13 / 11
+#     4     rear-right     26       19      GPIO26 / GPIO19   37 / 35
 #
-# Also share GND with the Pi (e.g. phys 30/34/39) and power encoders from
-# 3.3V (phys 1 or 17). M1 A/B verified: green→16, yellow→20.
+# Share GND (phys 30/34/39) and encoder V from 3.3V (phys 1 or 17).
 ENC_PINS = {
     1: (16, 20),
-    2: (13, 19),
-    3: (26, 5),
-    4: (6, 21),
+    2: (23, 24),
+    3: (27, 17),
+    4: (26, 19),
 }
 
 # Left = front-left + rear-left; right = front-right + rear-right.

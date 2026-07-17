@@ -30,14 +30,14 @@ from adafruit_motorkit import MotorKit  # pyright: ignore[reportMissingImports]
 
 # All candidate encoder GPIOs from the T-Cobbler plan (BCM).
 CANDIDATE_PINS = {
-    5: "GPIO5  (phys 29)",
-    6: "GPIO6  (phys 31)",
-    13: "GPIO13 (phys 33)",
-    19: "GPIO19 (phys 35)",
-    26: "GPIO26 (phys 37)",
-    20: "GPIO20 (phys 38)",
-    16: "GPIO16 (phys 36)",
-    21: "GPIO21 (phys 40)",
+    16: "GPIO16 (phys 36) M1 FR A",
+    20: "GPIO20 (phys 38) M1 FR B",
+    23: "GPIO23 (phys 16) M2 FL A",
+    24: "GPIO24 (phys 18) M2 FL B",
+    27: "GPIO27 (phys 13) M3 RL A",
+    17: "GPIO17 (phys 11) M3 RL B",
+    26: "GPIO26 (phys 37) M4 RR A",
+    19: "GPIO19 (phys 35) M4 RR B",
 }
 
 THROTTLE = 0.4
