@@ -63,7 +63,11 @@ SLEW_PER_S = 2.5
 
 SAMPLE_DT = 0.05
 STALL_CPS = 25.0
-CMD_EPS = 0.05
+# Ignore low throttle while slewing up/down from stop (avoids false stalls).
+# Keep ≤ typical arc-inner cmd (drive_th * arc_inner), e.g. 0.5*0.4=0.20.
+CMD_EPS = 0.15
+# Only score stalls once applied throttle is near the target command.
+SETTLED_EPS = 0.08
 LOG_PATH = Path(__file__).resolve().parent / "wasd_arc_log.txt"
 
 
@@ -258,7 +262,7 @@ class SessionLog:
         self._last_cmd = label
         self.events.append(f"t={self.elapsed():6.2f}s  CMD  {label}")
 
-    def sample(self, bot, sides) -> None:
+    def sample(self, bot, sides, target_sides=None) -> None:
         now = time.monotonic()
         if now - self._last_sample_t < SAMPLE_DT:
             return
@@ -294,6 +298,14 @@ class SessionLog:
         self.rates_L.append(mean_L)
         self.rates_R.append(mean_R)
 
+        # Skip stall scoring until slew has nearly reached the intended command.
+        if target_sides is None:
+            return
+        if abs(sides[0] - target_sides[0]) > SETTLED_EPS:
+            return
+        if abs(sides[1] - target_sides[1]) > SETTLED_EPS:
+            return
+
         stalled = []
         if abs(left_cmd) >= CMD_EPS and mean_L < STALL_CPS:
             stalled.append(f"L(cmd={left_cmd:+.2f},cps={mean_L:.0f})")
@@ -327,7 +339,8 @@ class SessionLog:
             f"samples={self.samples}  moving_samples={self.moving_samples}  "
             f"stall_samples={self.stall_samples}  stall_frac={stall_frac:.3f}",
             f"mean_cps while moving: L={mean_L:.0f}  R={mean_R:.0f}",
-            f"stall_threshold_cps={STALL_CPS}",
+            f"stall_threshold_cps={STALL_CPS}  cmd_eps={CMD_EPS}  "
+            f"settled_eps={SETTLED_EPS}",
             "",
             f"stall_events ({len(self.stall_events)}):",
         ]
@@ -469,7 +482,7 @@ def main():
                 log.note_cmd(label)
 
             apply_sides(bot, applied_sides)
-            log.sample(bot, applied_sides)
+            log.sample(bot, applied_sides, target_sides)
     finally:
         stop_on_enter._stop.set()
         bot.stop()
