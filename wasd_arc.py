@@ -251,7 +251,7 @@ class SessionLog:
         self._last_sample_t = 0.0
         self._last_stall_log_t = -1.0
         self.drive_th = 0.5
-        self.arc_inner = 0.4
+        self.arc_inner = 0.2
 
     def elapsed(self) -> float:
         return time.monotonic() - self.t0
@@ -363,7 +363,7 @@ class SessionLog:
 
 def main():
     drive_th = 0.5
-    arc_inner = 0.4
+    arc_inner = 0.2
     timeout = DEFAULT_HOLD_S
     step_mm = 50.0
     log = SessionLog()
