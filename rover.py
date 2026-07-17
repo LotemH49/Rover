@@ -9,7 +9,7 @@ radiation-search algorithms will call:
 Hardware:
     - Adafruit DC Motor HAT (I2C), motors addressed kit.motor1..4
     - 4x DFRobot FIT0522 gearmotors (12 CPR encoder, 75:1 gearbox)
-    - Quadrature encoders read via RPi.GPIO interrupts
+    - Quadrature encoders via lgpio (Pi 5) or RPi.GPIO (sim / older Pi)
 
 """
 
@@ -17,10 +17,16 @@ import math
 import time
 
 import board  # pyright: ignore[reportMissingImports]
-import RPi.GPIO as GPIO  # pyright: ignore[reportMissingImports, reportMissingModuleSource]
 from adafruit_motorkit import MotorKit  # pyright: ignore[reportMissingImports]
 
 import stop_on_enter
+
+try:
+    import lgpio  # pyright: ignore[reportMissingImports]
+    _HAS_LGPIO = True
+except ImportError:  # simulator / older images
+    import RPi.GPIO as GPIO  # pyright: ignore[reportMissingImports, reportMissingModuleSource]
+    _HAS_LGPIO = False
 
 
 # --------------------------------------------------------------------------
@@ -87,6 +93,8 @@ class Rover:
 
         # Encoder counts for motors listed in ENC_PINS only.
         self.counts = {name: 0 for name in ENC_PINS}
+        self._gpio_handle = None
+        self._gpio_callbacks = []
 
         self._setup_encoders()
         self.stop()
@@ -95,24 +103,64 @@ class Rover:
     # Encoder layer
     # ------------------------------------------------------------------
     def _setup_encoders(self):
+        if _HAS_LGPIO:
+            self._setup_encoders_lgpio()
+        else:
+            self._setup_encoders_rpigpio()
+
+    def _setup_encoders_lgpio(self):
+        last_err = None
+        for chip in (4, 0):
+            try:
+                self._gpio_handle = lgpio.gpiochip_open(chip)
+                break
+            except Exception as exc:
+                last_err = exc
+        if self._gpio_handle is None:
+            raise RuntimeError(f"Could not open gpiochip: {last_err}")
+
+        for name, (pin_a, pin_b) in ENC_PINS.items():
+            # Pi 5: callbacks require alert claims (input-only claims stay silent).
+            lgpio.gpio_claim_alert(
+                self._gpio_handle, pin_a, lgpio.BOTH_EDGES, lgpio.SET_PULL_UP
+            )
+            lgpio.gpio_claim_alert(
+                self._gpio_handle, pin_b, lgpio.BOTH_EDGES, lgpio.SET_PULL_UP
+            )
+            cb = self._make_callback_lgpio(name, pin_a, pin_b)
+            self._gpio_callbacks.append(
+                lgpio.callback(self._gpio_handle, pin_a, lgpio.BOTH_EDGES, cb)
+            )
+            self._gpio_callbacks.append(
+                lgpio.callback(self._gpio_handle, pin_b, lgpio.BOTH_EDGES, cb)
+            )
+
+    def _setup_encoders_rpigpio(self):
         GPIO.setmode(GPIO.BCM)
         for name, (pin_a, pin_b) in ENC_PINS.items():
             GPIO.setup(pin_a, GPIO.IN, pull_up_down=GPIO.PUD_UP)
             GPIO.setup(pin_b, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-            cb = self._make_callback(name, pin_a, pin_b)
-            # GPIO.BOTH on both channels gives full x4 quadrature decoding.
+            cb = self._make_callback_rpigpio(name, pin_a, pin_b)
             GPIO.add_event_detect(pin_a, GPIO.BOTH, callback=cb)
             GPIO.add_event_detect(pin_b, GPIO.BOTH, callback=cb)
 
-    def _make_callback(self, name, pin_a, pin_b):
+    def _make_callback_lgpio(self, name, pin_a, pin_b):
+        def callback(_chip, gpio, _level, _timestamp):
+            a = lgpio.gpio_read(self._gpio_handle, pin_a)
+            b = lgpio.gpio_read(self._gpio_handle, pin_b)
+            if gpio == pin_a:
+                self.counts[name] += 1 if a != b else -1
+            else:
+                self.counts[name] += 1 if a == b else -1
+        return callback
+
+    def _make_callback_rpigpio(self, name, pin_a, pin_b):
         def callback(channel):
             a = GPIO.input(pin_a)
             b = GPIO.input(pin_b)
             if channel == pin_a:
-                # A edge: direction set by whether A and B now differ.
                 self.counts[name] += 1 if a != b else -1
             else:
-                # B edge: direction set by whether A and B now match.
                 self.counts[name] += 1 if a == b else -1
         return callback
 
@@ -218,7 +266,20 @@ class Rover:
     def cleanup(self):
         """Stop motors and release GPIO. Call once at program exit."""
         self.stop()
-        GPIO.cleanup()
+        if _HAS_LGPIO:
+            for cb in self._gpio_callbacks:
+                try:
+                    cb.cancel()
+                except Exception:
+                    pass
+            if self._gpio_handle is not None:
+                try:
+                    lgpio.gpiochip_close(self._gpio_handle)
+                except Exception:
+                    pass
+                self._gpio_handle = None
+        else:
+            GPIO.cleanup()
 
 
 def _demo():
